@@ -57,18 +57,18 @@ def chat():
         while True:
             response = ag.client.messages.create(
                 model=model,
-                max_tokens=4096,
+                max_tokens=8192,
                 tools=model_tools,
                 messages=messages,
             )
             stop_reason = response.stop_reason
 
-            if stop_reason == "end_turn":
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        collected.append({"type": "text", "text": block.text})
-                        return block.text
-                return ""
+            # Fix: collect ALL text blocks; also handle max_tokens gracefully
+            if stop_reason in ("end_turn", "max_tokens"):
+                texts = [b.text for b in response.content if hasattr(b, "text")]
+                for t in texts:
+                    collected.append({"type": "text", "text": t})
+                return texts[-1] if texts else ""
 
             elif stop_reason == "tool_use":
                 messages.append({"role": "assistant", "content": response.content})
@@ -76,7 +76,11 @@ def chat():
                 has_server_tool = False
 
                 for block in response.content:
-                    if block.type == "tool_use" and block.name in ag.CUSTOM_TOOL_HANDLERS:
+                    # Fix: collect any preamble text ("I'll search for…") that
+                    # arrives alongside a tool_use stop — previously silently dropped.
+                    if hasattr(block, "text"):
+                        collected.append({"type": "text", "text": block.text})
+                    elif block.type == "tool_use" and block.name in ag.CUSTOM_TOOL_HANDLERS:
                         handler = ag.CUSTOM_TOOL_HANDLERS[block.name]
                         result = handler(**block.input)
                         collected.append({

@@ -638,6 +638,15 @@ function appendAgentParts(parts) {
 
 function addAgentMsg(parts) {
   removeTyping();
+  if (!parts || !parts.length) {
+    const row = document.createElement('div');
+    row.className = 'msg-row agent';
+    row.innerHTML = `<div class="avatar agent">AI</div>
+      <div class="msg-body"><div class="error-msg">No response received — please try again.</div></div>`;
+    messagesEl.appendChild(row);
+    scrollBottom();
+    return;
+  }
   appendAgentParts(parts);
   scrollBottom();
 }
