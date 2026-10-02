@@ -27,6 +27,7 @@
   --calc-c:     #e88030;
   --search-c:   #2ea05a;
   --dot:        #ccccd8;
+  --sidebar-w:  240px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -61,17 +62,82 @@ html, body {
   font-family: 'DM Sans', system-ui, sans-serif;
   font-size: 15px; line-height: 1.55;
 }
-#app {
+
+/* ── Layout ── */
+#shell {
+  display: flex; height: 100%;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: var(--sidebar-w); flex-shrink: 0;
+  background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
-  height: 100%; max-width: 780px; margin: 0 auto;
+  transition: width 0.22s ease, opacity 0.22s ease;
+  overflow: hidden;
+}
+#sidebar.collapsed { width: 0; opacity: 0; pointer-events: none; }
+.sidebar-header {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+}
+.sidebar-title {
+  font-family: 'Sora', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg3);
+}
+#new-chat-btn {
+  width: 100%; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--accent); background: var(--accent-dim);
+  color: var(--accent); font-family: 'Sora', sans-serif; font-size: 12px;
+  font-weight: 600; cursor: pointer; letter-spacing: 0.02em;
+  transition: background 0.15s;
+}
+#new-chat-btn:hover { background: var(--accent); color: #fff; }
+#history-list {
+  flex: 1; overflow-y: auto; padding: 8px 8px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.hist-item {
+  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+  display: flex; flex-direction: column; gap: 2px; overflow: hidden;
+}
+.hist-item:hover { background: var(--surface2); border-color: var(--border); }
+.hist-item.active { background: var(--accent-dim); border-color: var(--accent); }
+.hist-item-title {
+  font-size: 12px; font-weight: 500; color: var(--fg);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hist-item-meta {
+  font-size: 11px; color: var(--fg3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hist-empty {
+  padding: 20px 10px; text-align: center;
+  font-size: 12px; color: var(--fg3); line-height: 1.6;
+}
+
+/* ── Chat area ── */
+#chat-area {
+  flex: 1; display: flex; flex-direction: column; min-width: 0;
 }
 header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 20px;
   background: var(--surface); border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  flex-shrink: 0; gap: 10px;
 }
 .header-left { display: flex; align-items: center; gap: 10px; }
+#sidebar-toggle {
+  width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--fg2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+#sidebar-toggle:hover { border-color: var(--accent); color: var(--accent); }
+#sidebar-toggle svg { width: 14px; height: 14px; }
 .logo-mark {
   width: 34px; height: 34px; border-radius: 8px;
   background: var(--accent);
@@ -184,77 +250,249 @@ header {
 .empty-title { font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
 .empty-sub { font-size: 14px; color: var(--fg2); max-width: 320px; line-height: 1.5; }
 .error-msg { color: #c0392b; font-size: 13px; padding: 8px 12px; background: #fdecea; border-radius: 8px; }
-@media (max-width: 500px) {
-  header { flex-direction: column; align-items: flex-start; gap: 8px; }
+@media (max-width: 600px) {
+  #sidebar { position: fixed; top: 0; left: 0; height: 100%; z-index: 100; width: var(--sidebar-w); }
+  #sidebar.collapsed { width: 0; }
+  header { flex-wrap: wrap; gap: 8px; }
   .msg-body { max-width: 94%; }
 }
 </style>
 </head>
 <body>
-<div id="app">
-  <header>
-    <div class="header-left">
-      <div class="logo-mark">
-        <svg viewBox="0 0 20 20"><path d="M10 2C5.6 2 2 5.6 2 10s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm-1 12.4L5.6 10l1.4-1.4 2 2 5-5 1.4 1.4z"/></svg>
-      </div>
-      <div>
-        <div class="header-title">Agent Chat</div>
-        <div class="header-sub" id="header-sub">claude-sonnet-4-6 · live mode</div>
-      </div>
-    </div>
-    <div class="tool-pills">
-      <div class="model-select-wrap">
-        <select id="model-select" aria-label="Select model">
-          <option value="claude-sonnet-4-6">Sonnet 4.6</option>
-          <option value="claude-haiku-4-5">Haiku 4.5</option>
-          <option value="claude-sonnet-5-5">Sonnet 5.5</option>
-          <option value="claude-opus-5-5">Opus 5.5</option>
-        </select>
-        <span class="model-chevron"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3.5l3 3 3-3"/></svg></span>
-      </div>
-      <div class="tool-pill weather">Weather</div>
-      <div class="tool-pill calc">Calculator</div>
-      <div class="tool-pill search">Web Search</div>
-    </div>
-  </header>
+<div id="shell">
 
-  <div id="messages">
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Conversations</div>
+      <button id="new-chat-btn">+ New Chat</button>
+    </div>
+    <div id="history-list"></div>
+  </aside>
+
+  <!-- Main chat -->
+  <div id="chat-area">
+    <header>
+      <div class="header-left">
+        <button id="sidebar-toggle" aria-label="Toggle history">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <line x1="1" y1="3.5" x2="13" y2="3.5"/>
+            <line x1="1" y1="7"   x2="13" y2="7"/>
+            <line x1="1" y1="10.5" x2="13" y2="10.5"/>
+          </svg>
+        </button>
+        <div class="logo-mark">
+          <svg viewBox="0 0 20 20"><path d="M10 2C5.6 2 2 5.6 2 10s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm-1 12.4L5.6 10l1.4-1.4 2 2 5-5 1.4 1.4z"/></svg>
+        </div>
+        <div>
+          <div class="header-title">Agent Chat</div>
+          <div class="header-sub" id="header-sub">claude-sonnet-4-6 · live mode</div>
+        </div>
+      </div>
+      <div class="tool-pills">
+        <div class="model-select-wrap">
+          <select id="model-select" aria-label="Select model">
+            <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+            <option value="claude-haiku-4-5">Haiku 4.5</option>
+            <option value="claude-sonnet-5-5">Sonnet 5.5</option>
+            <option value="claude-opus-5-5">Opus 5.5</option>
+          </select>
+          <span class="model-chevron"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3.5l3 3 3-3"/></svg></span>
+        </div>
+        <div class="tool-pill weather">Weather</div>
+        <div class="tool-pill calc">Calculator</div>
+        <div class="tool-pill search">Web Search</div>
+      </div>
+    </header>
+
+    <div id="messages">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+        </div>
+        <div class="empty-title">Ask me anything</div>
+        <div class="empty-sub">Weather, maths, or web search — Claude picks the right tool automatically.</div>
+      </div>
+    </div>
+
+    <div class="suggestions" id="suggestions">
+      <button class="sug-btn" data-q="What is the weather in Mumbai right now?">Weather in Mumbai</button>
+      <button class="sug-btn" data-q="What is 15% of 85000?">15% of 85,000</button>
+      <button class="sug-btn" data-q="Is it warmer in Dubai or Singapore today?">Dubai vs Singapore</button>
+      <button class="sug-btn" data-q="What is the square root of 1764?">√1764</button>
+      <button class="sug-btn" data-q="Search for the latest news on AI agents">Latest AI news</button>
+    </div>
+
+    <div id="input-bar">
+      <textarea id="user-input" rows="1" placeholder="Ask about weather, maths, or anything…"></textarea>
+      <button id="send-btn" aria-label="Send">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M14.7 7.3l-12-6a.75.75 0 00-1 .95l2.44 5.25-2.44 5.25a.75.75 0 001 .95l12-6a.75.75 0 000-1.4z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Storage helpers ──────────────────────────────────────────────
+const STORAGE_KEY = 'agent_chat_history';
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveHistory(history) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); }
+  catch {}
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ── State ────────────────────────────────────────────────────────
+let history = loadHistory();   // [{id, title, model, ts, messages:[{role,text?,parts?}]}]
+let currentId = null;          // id of the active conversation, null = unsaved new chat
+
+// ── DOM refs ─────────────────────────────────────────────────────
+const messagesEl   = document.getElementById('messages');
+const inputEl      = document.getElementById('user-input');
+const sendBtn      = document.getElementById('send-btn');
+const modelSelect  = document.getElementById('model-select');
+const headerSub    = document.getElementById('header-sub');
+const historyList  = document.getElementById('history-list');
+const newChatBtn   = document.getElementById('new-chat-btn');
+const sidebarEl    = document.getElementById('sidebar');
+const sidebarToggle= document.getElementById('sidebar-toggle');
+
+// ── Sidebar toggle ───────────────────────────────────────────────
+sidebarToggle.addEventListener('click', () => {
+  sidebarEl.classList.toggle('collapsed');
+});
+
+// ── Model selector ───────────────────────────────────────────────
+modelSelect.addEventListener('change', () => {
+  headerSub.textContent = `${modelSelect.value} · live mode`;
+});
+
+// ── Render history sidebar ───────────────────────────────────────
+function renderHistory() {
+  historyList.innerHTML = '';
+  if (!history.length) {
+    historyList.innerHTML = '<div class="hist-empty">No saved conversations yet.<br>Start chatting to save one.</div>';
+    return;
+  }
+  // newest first
+  [...history].reverse().forEach(conv => {
+    const item = document.createElement('div');
+    item.className = 'hist-item' + (conv.id === currentId ? ' active' : '');
+    item.dataset.id = conv.id;
+    const date = new Date(conv.ts);
+    const dateStr = date.toLocaleDateString(undefined, { month:'short', day:'numeric' })
+                  + ' ' + date.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
+    item.innerHTML = `
+      <div class="hist-item-title">${escHtml(conv.title)}</div>
+      <div class="hist-item-meta">${escHtml(conv.model.replace('claude-','').replace('-',' '))} · ${dateStr}</div>`;
+    item.addEventListener('click', () => loadConversation(conv.id));
+    historyList.appendChild(item);
+  });
+}
+
+// ── Save current conversation ────────────────────────────────────
+function saveCurrentConversation(firstUserMsg, model) {
+  if (currentId) {
+    // update existing
+    const idx = history.findIndex(c => c.id === currentId);
+    if (idx !== -1) {
+      history[idx].messages = collectMessages();
+      history[idx].model = model;
+      saveHistory(history);
+      renderHistory();
+      return;
+    }
+  }
+  // create new
+  currentId = genId();
+  const conv = {
+    id: currentId,
+    title: firstUserMsg.slice(0, 60),
+    model,
+    ts: Date.now(),
+    messages: collectMessages(),
+  };
+  history.push(conv);
+  saveHistory(history);
+  renderHistory();
+}
+
+// ── Collect rendered messages from DOM ───────────────────────────
+function collectMessages() {
+  const rows = messagesEl.querySelectorAll('.msg-row');
+  const msgs = [];
+  rows.forEach(row => {
+    if (row.id === 'typing') return;
+    if (row.classList.contains('user')) {
+      const bubble = row.querySelector('.bubble');
+      if (bubble) msgs.push({ role: 'user', text: bubble.textContent });
+    } else {
+      // agent: collect bubbles and tool cards
+      const parts = [];
+      row.querySelectorAll('.bubble').forEach(b => parts.push({ type: 'text', text: b.textContent }));
+      row.querySelectorAll('.tool-card').forEach(card => {
+        const tool  = card.querySelector('.tool-name')?.textContent || '';
+        const input = card.querySelector('.tool-input')?.textContent || '';
+        const output= card.querySelector('.tool-output')?.textContent || '';
+        parts.push({ type: 'tool', tool, input, output });
+      });
+      if (parts.length) msgs.push({ role: 'agent', parts });
+    }
+  });
+  return msgs;
+}
+
+// ── Load a past conversation into the UI ─────────────────────────
+function loadConversation(id) {
+  const conv = history.find(c => c.id === id);
+  if (!conv) return;
+  currentId = id;
+
+  // clear chat area
+  messagesEl.innerHTML = '';
+  document.getElementById('suggestions').style.display = 'none';
+
+  // restore model
+  modelSelect.value = conv.model;
+  headerSub.textContent = `${conv.model} · live mode`;
+
+  // replay messages
+  conv.messages.forEach(msg => {
+    if (msg.role === 'user') {
+      appendUserBubble(msg.text);
+    } else {
+      appendAgentParts(msg.parts || []);
+    }
+  });
+
+  renderHistory();
+  scrollBottom();
+}
+
+// ── New chat ─────────────────────────────────────────────────────
+newChatBtn.addEventListener('click', () => {
+  currentId = null;
+  messagesEl.innerHTML = `
     <div class="empty-state" id="empty-state">
       <div class="empty-icon">
         <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
       </div>
       <div class="empty-title">Ask me anything</div>
       <div class="empty-sub">Weather, maths, or web search — Claude picks the right tool automatically.</div>
-    </div>
-  </div>
-
-  <div class="suggestions" id="suggestions">
-    <button class="sug-btn" data-q="What is the weather in Mumbai right now?">Weather in Mumbai</button>
-    <button class="sug-btn" data-q="What is 15% of 85000?">15% of 85,000</button>
-    <button class="sug-btn" data-q="Is it warmer in Dubai or Singapore today?">Dubai vs Singapore</button>
-    <button class="sug-btn" data-q="What is the square root of 1764?">√1764</button>
-    <button class="sug-btn" data-q="Search for the latest news on AI agents">Latest AI news</button>
-  </div>
-
-  <div id="input-bar">
-    <textarea id="user-input" rows="1" placeholder="Ask about weather, maths, or anything…"></textarea>
-    <button id="send-btn" aria-label="Send">
-      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M14.7 7.3l-12-6a.75.75 0 00-1 .95l2.44 5.25-2.44 5.25a.75.75 0 001 .95l12-6a.75.75 0 000-1.4z"/></svg>
-    </button>
-  </div>
-</div>
-
-<script>
-const messagesEl  = document.getElementById('messages');
-const inputEl     = document.getElementById('user-input');
-const sendBtn     = document.getElementById('send-btn');
-const modelSelect = document.getElementById('model-select');
-const headerSub   = document.getElementById('header-sub');
-
-modelSelect.addEventListener('change', () => {
-  headerSub.textContent = `${modelSelect.value} · live mode`;
+    </div>`;
+  document.getElementById('suggestions').style.display = '';
+  renderHistory();
 });
 
+// ── UI helpers ───────────────────────────────────────────────────
 function hideEmpty() {
   const e = document.getElementById('empty-state');
   const s = document.getElementById('suggestions');
@@ -266,13 +504,17 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function addUserMsg(text) {
-  hideEmpty();
+function appendUserBubble(text) {
   const row = document.createElement('div');
   row.className = 'msg-row user';
   row.innerHTML = `<div class="avatar user">You</div>
     <div class="msg-body"><div class="bubble">${escHtml(text)}</div></div>`;
   messagesEl.appendChild(row);
+}
+
+function addUserMsg(text) {
+  hideEmpty();
+  appendUserBubble(text);
   scrollBottom();
 }
 
@@ -308,12 +550,17 @@ function renderParts(parts) {
   }).join('');
 }
 
-function addAgentMsg(parts) {
-  removeTyping();
+function appendAgentParts(parts) {
   const row = document.createElement('div');
   row.className = 'msg-row agent';
   row.innerHTML = `<div class="avatar agent">AI</div><div class="msg-body">${renderParts(parts)}</div>`;
-  messagesEl.appendChild(row); scrollBottom();
+  messagesEl.appendChild(row);
+}
+
+function addAgentMsg(parts) {
+  removeTyping();
+  appendAgentParts(parts);
+  scrollBottom();
 }
 
 function addError(msg) {
@@ -326,13 +573,18 @@ function addError(msg) {
 
 function scrollBottom() { setTimeout(() => messagesEl.scrollTop = messagesEl.scrollHeight, 30); }
 
+// ── Send ─────────────────────────────────────────────────────────
 let busy = false;
+let firstMsgInConv = true;
 
 async function send() {
   const text = inputEl.value.trim();
   if (!text || busy) return;
   busy = true;
   inputEl.value = ''; inputEl.style.height = 'auto';
+  const model = modelSelect.value;
+  const isFirstMsg = firstMsgInConv && currentId === null;
+
   addUserMsg(text);
   addTyping();
 
@@ -340,17 +592,24 @@ async function send() {
     const res = await fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: text, model: modelSelect.value })
+      body: JSON.stringify({ question: text, model })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Server error');
     addAgentMsg(data.parts);
+
+    // save / update history after each successful reply
+    if (isFirstMsg) firstMsgInConv = false;
+    saveCurrentConversation(text, model);
   } catch (err) {
     addError('Error: ' + err.message);
   } finally {
     busy = false;
   }
 }
+
+// reset firstMsgInConv when new chat starts
+newChatBtn.addEventListener('click', () => { firstMsgInConv = true; }, true);
 
 sendBtn.addEventListener('click', send);
 inputEl.addEventListener('keydown', e => {
@@ -363,6 +622,9 @@ inputEl.addEventListener('input', () => {
 document.querySelectorAll('.sug-btn').forEach(btn => {
   btn.addEventListener('click', () => { inputEl.value = btn.dataset.q; send(); });
 });
+
+// ── Init ─────────────────────────────────────────────────────────
+renderHistory();
 </script>
 </body>
 </html>
