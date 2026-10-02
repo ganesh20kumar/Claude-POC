@@ -1,1 +1,3 @@
 anthropic>=1.0.0
+# Weather tool uses urllib + json from Python stdlib — no extra packages needed
+# Get a free OpenWeatherMap API key at https://openweathermap.org/api

@@ -1,13 +1,19 @@
 """
 Agentic AI Example — With Custom Tools
 ----------------------------------------
-This agent has TWO types of tools:
+This agent has THREE types of tools:
 
-  1. web_search  — built-in Anthropic tool, runs on their servers
-  2. calculator  — YOUR OWN Python function, runs on your computer
+  1. web_search    — built-in Anthropic tool, runs on their servers
+  2. calculator    — YOUR OWN Python function, runs on your computer
+  3. get_weather   — YOUR OWN tool that calls the OpenWeatherMap API
 
-When you ask a question, Claude decides which tool to use (or both!),
+When you ask a question, Claude decides which tool(s) to use,
 calls them, reads the results, and gives you a final answer.
+
+Setup for the weather tool:
+  1. Sign up free at https://openweathermap.org/api
+  2. Go to "API keys" in your account and copy your key
+  3. Set it: export OPENWEATHER_API_KEY="your-key-here"
 
 The core agentic loop:
   You give a goal
@@ -23,6 +29,9 @@ The core agentic loop:
 
 import os
 import math
+import urllib.request
+import urllib.parse
+import json
 import anthropic
 
 # ---------------------------------------------------------------------------
@@ -32,7 +41,92 @@ client = anthropic.Anthropic()
 
 
 # ---------------------------------------------------------------------------
-# Step 2A: Define YOUR CUSTOM TOOL — a calculator
+# Step 2A: Define YOUR CUSTOM TOOL — a weather checker
+#
+# We call the free OpenWeatherMap API to get real, live weather data.
+# Claude doesn't know how to call APIs — that's YOUR job as the developer.
+# Claude just says "I need weather for Paris" and your function does the work.
+# ---------------------------------------------------------------------------
+
+WEATHER_TOOL = {
+    "name": "get_weather",
+    "description": (
+        "Get the current real-time weather for any city in the world. "
+        "Use this when the user asks about weather, temperature, or climate "
+        "in a specific location."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "city": {
+                "type": "string",
+                "description": "The city name, e.g. 'London', 'Tokyo', 'New York'",
+            },
+            "units": {
+                "type": "string",
+                "enum": ["metric", "imperial"],
+                "description": "Temperature unit: 'metric' for Celsius, 'imperial' for Fahrenheit",
+            },
+        },
+        "required": ["city"],
+    },
+}
+
+def run_get_weather(city: str, units: str = "metric") -> str:
+    """
+    Call the OpenWeatherMap API and return current weather as a string.
+    Requires OPENWEATHER_API_KEY environment variable.
+    """
+    print(f"  → Weather API called for: {city} ({units})")
+
+    api_key = os.environ.get("OPENWEATHER_API_KEY")
+    if not api_key:
+        return (
+            "Error: OPENWEATHER_API_KEY is not set. "
+            "Get a free key at https://openweathermap.org/api "
+            "then run: export OPENWEATHER_API_KEY='your-key-here'"
+        )
+
+    # Build the API URL
+    params = urllib.parse.urlencode({
+        "q": city,
+        "appid": api_key,
+        "units": units,
+    })
+    url = f"https://api.openweathermap.org/data/2.5/weather?{params}"
+
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310
+            data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return f"City '{city}' not found. Try a different spelling."
+        if e.code == 401:
+            return "Invalid API key. Check your OPENWEATHER_API_KEY."
+        return f"API error: HTTP {e.code}"
+    except Exception as e:
+        return f"Failed to fetch weather: {e}"
+
+    # Pull out the fields we care about
+    temp      = data["main"]["temp"]
+    feels     = data["main"]["feels_like"]
+    humidity  = data["main"]["humidity"]
+    desc      = data["weather"][0]["description"].capitalize()
+    wind_spd  = data["wind"]["speed"]
+    unit_sym  = "°C" if units == "metric" else "°F"
+    wind_unit = "m/s" if units == "metric" else "mph"
+
+    return (
+        f"Weather in {data['name']}, {data['sys']['country']}:\n"
+        f"  Condition : {desc}\n"
+        f"  Temperature: {temp}{unit_sym} (feels like {feels}{unit_sym})\n"
+        f"  Humidity  : {humidity}%\n"
+        f"  Wind      : {wind_spd} {wind_unit}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Step 2B: Define YOUR CUSTOM TOOL — a calculator
 #
 # A custom tool has two parts:
 #   (a) The DESCRIPTION — tells Claude what the tool does and when to use it
@@ -78,7 +172,7 @@ def run_calculator(expression: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 2B: All tools the agent can use (mix of built-in and custom)
+# Step 2C: All tools the agent can use (mix of built-in and custom)
 # ---------------------------------------------------------------------------
 tools = [
     # Built-in Anthropic tool — runs on their servers, no code needed from us
@@ -87,14 +181,15 @@ tools = [
         "name": "web_search",
         "max_uses": 3,
     },
-    # Our custom tool — runs on OUR computer when Claude calls it
+    # Our custom tools — run on OUR computer when Claude calls them
     CALCULATOR_TOOL,
+    WEATHER_TOOL,
 ]
 
 # Map tool names to the functions that handle them
-# When Claude calls "calculator", we run run_calculator()
 CUSTOM_TOOL_HANDLERS = {
     "calculator": run_calculator,
+    "get_weather": run_get_weather,
 }
 
 
@@ -203,15 +298,16 @@ if __name__ == "__main__":
         exit(1)
 
     questions = [
+        # This needs the weather tool
+        "What is the current weather in London and Tokyo?",
+
         # This needs the calculator tool
         "If I invest $5,000 at 8% annual interest for 10 years, "
         "how much will I have? (Use compound interest: A = P * (1 + r)^t)",
 
-        # This needs the web search tool
-        "What is the current population of India?",
-
-        # This might need both tools!
-        "Search for the GDP of USA in 2024 and then calculate what 3.5% of it is.",
+        # This combines weather + calculator
+        "Is it warmer in Paris or Sydney right now? "
+        "And what is the difference in temperature in Fahrenheit?",
     ]
 
     for question in questions:
