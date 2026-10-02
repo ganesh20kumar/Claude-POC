@@ -432,6 +432,7 @@ header {
 }
 .typing-dots span:nth-child(2) { animation-delay: 0.18s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.36s; }
+.typing-label { font-size: 12px; color: var(--fg3); margin-left: 6px; font-family: 'Sora', sans-serif; }
 @keyframes bounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
 
 /* Scroll sentinel + FAB */
@@ -989,8 +990,8 @@ function addUserMsg(text) {
 function addTyping() {
   const row = document.createElement('div');
   row.className = 'msg-row agent'; row.id = 'typing';
-  row.innerHTML = `<div class="msg-meta"><div class="avatar agent">AI</div></div>
-    <div class="msg-body"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  row.innerHTML = `<div class="msg-meta"><div class="avatar agent">✦</div></div>
+    <div class="msg-body"><div class="typing-dots"><span></span><span></span><span></span><span class="typing-label">Thinking…</span></div></div>`;
   insertBeforeSentinel(row);
   scrollBottom();
 }
@@ -1036,10 +1037,10 @@ function appendAgentParts(parts, model) {
   row.className = 'msg-row agent';
   row.dataset.ts = ts;
   if (model) row.dataset.model = model;
-  const badgeLabel = model ? model.replace('claude-','').replace(/-/g,' ') : '';
+  const badgeLabel = model ? model.replace('claude-','').replace('sonnet-','').replace(/-/g,'.') : '';
   row.innerHTML = `
     <div class="msg-meta">
-      <div class="avatar agent">AI</div>
+      <div class="avatar agent">✦</div>
       ${badgeLabel ? `<div class="model-badge" title="${escHtml(model)}">${escHtml(badgeLabel)}</div>` : ''}
       <span class="msg-ts">${fmtTime(ts)}</span>
     </div>
@@ -1071,7 +1072,7 @@ function addAgentMsg(parts) {
   if (!parts || !parts.length) {
     const row = document.createElement('div');
     row.className = 'msg-row agent';
-    row.innerHTML = `<div class="msg-meta"><div class="avatar agent">AI</div></div>
+    row.innerHTML = `<div class="msg-meta"><div class="avatar agent">✦</div></div>
       <div class="msg-body"><div class="error-msg">No response received — please try again.</div></div>`;
     insertBeforeSentinel(row);
     scrollBottom();
@@ -1085,7 +1086,7 @@ function addError(msg) {
   removeTyping();
   const row = document.createElement('div');
   row.className = 'msg-row agent';
-  row.innerHTML = `<div class="msg-meta"><div class="avatar agent">AI</div></div>
+  row.innerHTML = `<div class="msg-meta"><div class="avatar agent">✦</div></div>
     <div class="msg-body"><div class="error-msg">${escHtml(msg)}</div></div>`;
   insertBeforeSentinel(row);
   scrollBottom();
