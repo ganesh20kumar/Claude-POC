@@ -72,7 +72,8 @@ def chat():
 
             elif stop_reason == "tool_use":
                 messages.append({"role": "assistant", "content": response.content})
-                tool_results = []
+                custom_tool_results = []
+                has_server_tool = False
 
                 for block in response.content:
                     if block.type == "tool_use" and block.name in ag.CUSTOM_TOOL_HANDLERS:
@@ -84,32 +85,36 @@ def chat():
                             "input": json.dumps(block.input),
                             "output": result,
                         })
-                        tool_results.append({
+                        custom_tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,
                             "content": result,
                         })
                     elif block.type == "web_search_tool_result":
+                        # Server-side tool: result already lives in the assistant
+                        # message — no separate user tool_result message needed.
+                        has_server_tool = True
                         collected.append({
                             "type": "tool",
                             "tool": "web_search",
                             "input": "web_search(...)",
                             "output": "Web search results received.",
                         })
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.tool_use_id,
-                            "content": block.content,
-                        })
 
-                if tool_results:
-                    messages.append({"role": "user", "content": tool_results})
-                else:
-                    messages.append({"role": "user", "content": [
+                if custom_tool_results:
+                    messages.append({"role": "user", "content": custom_tool_results})
+                elif not has_server_tool:
+                    # Unknown tool_use block — send a placeholder result so the
+                    # loop can continue rather than sending an empty user message.
+                    fallback = [
                         {"type": "tool_result", "tool_use_id": b.id,
-                         "content": "Search completed."}
+                         "content": "Done."}
                         for b in response.content if b.type == "tool_use"
-                    ]})
+                    ]
+                    if fallback:
+                        messages.append({"role": "user", "content": fallback})
+                # For server tools (web_search), the result is already embedded in
+                # the assistant content; just loop and call the API again.
             else:
                 break
 
