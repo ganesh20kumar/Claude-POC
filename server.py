@@ -41,6 +41,9 @@ def chat():
     if model not in ALLOWED_MODELS:
         model = "claude-sonnet-4-6"
 
+    # Prior conversation turns for memory (list of {role, content} dicts)
+    prior_history = data.get("history", [])
+
     collected: list[dict] = []
 
     # Haiku 4.5 only supports the basic web_search variant
@@ -53,7 +56,7 @@ def chat():
     original_ask = ag.ask_agent
 
     def instrumented_ask(q: str) -> str:
-        messages = [{"role": "user", "content": q}]
+        messages = prior_history + [{"role": "user", "content": q}]
         while True:
             response = ag.client.messages.create(
                 model=model,

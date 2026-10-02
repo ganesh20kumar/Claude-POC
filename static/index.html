@@ -1138,6 +1138,26 @@ inputEl.addEventListener('input', () => {
   charCountEl.className = len > 3000 ? 'danger' : len > 1000 ? 'warn' : '';
 });
 
+// ── Conversation memory ─────────────────────────────────────────
+function buildApiHistory() {
+  if (!currentId) return [];
+  const conv = history.find(c => c.id === currentId);
+  if (!conv) return [];
+  const pairs = [];
+  for (const msg of conv.messages) {
+    if (msg.role === 'user') {
+      pairs.push({ role: 'user', content: msg.text });
+    } else {
+      const text = (msg.parts || [])
+        .filter(p => p.type === 'text')
+        .map(p => p.text)
+        .join('\n\n');
+      if (text) pairs.push({ role: 'assistant', content: text });
+    }
+  }
+  return pairs.slice(-20); // keep last 20 turns to stay within token budget
+}
+
 // ── Send ────────────────────────────────────────────────────────
 let busy = false;
 
@@ -1157,7 +1177,7 @@ async function send() {
     const res = await fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: text, model })
+      body: JSON.stringify({ question: text, model, history: buildApiHistory() })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Server error');
