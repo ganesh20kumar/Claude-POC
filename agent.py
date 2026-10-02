@@ -289,27 +289,46 @@ def ask_agent(question: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 4: Run the agent with questions that need different tools
+# Step 4: Interactive chat loop — type your own questions!
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("ERROR: Please set your ANTHROPIC_API_KEY environment variable.")
-        print("  export ANTHROPIC_API_KEY='your-key-here'")
+        print("  set ANTHROPIC_API_KEY=your-key-here  (Windows)")
         exit(1)
 
-    questions = [
-        # This needs the weather tool
-        "What is the current weather in London and Tokyo?",
+    print("\n" + "="*60)
+    print("  Agentic AI Assistant")
+    print("  Tools available: weather, calculator, web search")
+    print("  Type 'quit' or 'exit' to stop")
+    print("="*60)
+    print("\nExample questions you can try:")
+    print("  - What is the weather in Mumbai?")
+    print("  - What is 15% of 8500?")
+    print("  - Is it warmer in Dubai or Singapore right now?")
+    print("  - What is the square root of 144?")
+    print("  - Search for the latest news on AI agents")
+    print()
 
-        # This needs the calculator tool
-        "If I invest $5,000 at 8% annual interest for 10 years, "
-        "how much will I have? (Use compound interest: A = P * (1 + r)^t)",
+    # Keep asking questions until the user types 'quit'
+    while True:
+        # Get input from the user
+        try:
+            question = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nGoodbye!")
+            break
 
-        # This combines weather + calculator
-        "Is it warmer in Paris or Sydney right now? "
-        "And what is the difference in temperature in Fahrenheit?",
-    ]
+        # Exit if the user types quit or exit
+        if question.lower() in ("quit", "exit", "q", "bye"):
+            print("Goodbye!")
+            break
 
-    for question in questions:
+        # Skip empty input
+        if not question:
+            print("Please type a question.")
+            continue
+
+        # Send the question to the agent
         ask_agent(question)
-        print("\n")
+        print()
