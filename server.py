@@ -43,7 +43,13 @@ def chat():
 
     collected: list[dict] = []
 
-    # Monkey-patch print so we can capture tool call events
+    # Haiku 4.5 only supports the basic web_search variant
+    if model == "claude-haiku-4-5":
+        web_search_tool = {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+    else:
+        web_search_tool = {"type": "web_search_20260209", "name": "web_search", "max_uses": 3}
+    model_tools = [web_search_tool] + [t for t in ag.tools if t.get("name") not in ("web_search",)]
+
     original_ask = ag.ask_agent
 
     def instrumented_ask(q: str) -> str:
@@ -52,7 +58,7 @@ def chat():
             response = ag.client.messages.create(
                 model=model,
                 max_tokens=4096,
-                tools=ag.tools,
+                tools=model_tools,
                 messages=messages,
             )
             stop_reason = response.stop_reason
