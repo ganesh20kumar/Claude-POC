@@ -211,7 +211,7 @@ def ask_agent(question: str) -> str:
         print("\n[Agent is thinking...]")
 
         response = client.messages.create(
-            model="claude-opus-5-5",
+            model="claude-sonnet-4-6",
             max_tokens=4096,
             tools=tools,
             messages=messages,
