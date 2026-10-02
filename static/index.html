@@ -106,10 +106,20 @@ html, body {
 }
 .hist-item:hover { background: var(--surface2); border-color: var(--border); }
 .hist-item.active { background: var(--accent-dim); border-color: var(--accent); }
+.hist-item-row { display: flex; align-items: center; gap: 4px; }
 .hist-item-title {
   font-size: 12px; font-weight: 500; color: var(--fg);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
 }
+.hist-del-btn {
+  flex-shrink: 0; width: 18px; height: 18px; border-radius: 4px; border: none;
+  background: transparent; color: var(--fg3); cursor: pointer;
+  display: none; align-items: center; justify-content: center; padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.hist-item:hover .hist-del-btn { display: flex; }
+.hist-del-btn:hover { background: rgba(192,57,43,0.14); color: #c0392b; }
+.hist-del-btn svg { width: 10px; height: 10px; }
 .hist-item-meta {
   font-size: 11px; color: var(--fg3);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -391,11 +401,43 @@ function renderHistory() {
     const dateStr = date.toLocaleDateString(undefined, { month:'short', day:'numeric' })
                   + ' ' + date.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
     item.innerHTML = `
-      <div class="hist-item-title">${escHtml(conv.title)}</div>
+      <div class="hist-item-row">
+        <div class="hist-item-title">${escHtml(conv.title)}</div>
+        <button class="hist-del-btn" aria-label="Delete conversation" title="Delete">
+          <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/>
+          </svg>
+        </button>
+      </div>
       <div class="hist-item-meta">${escHtml(conv.model.replace('claude-','').replace('-',' '))} · ${dateStr}</div>`;
+    item.querySelector('.hist-del-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      deleteConversation(conv.id);
+    });
     item.addEventListener('click', () => loadConversation(conv.id));
     historyList.appendChild(item);
   });
+}
+
+// ── Delete a conversation ────────────────────────────────────────
+function deleteConversation(id) {
+  history = history.filter(c => c.id !== id);
+  saveHistory(history);
+  if (currentId === id) {
+    // deleted the active chat — show empty state
+    currentId = null;
+    firstMsgInConv = true;
+    messagesEl.innerHTML = `
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+        </div>
+        <div class="empty-title">Ask me anything</div>
+        <div class="empty-sub">Weather, maths, or web search — Claude picks the right tool automatically.</div>
+      </div>`;
+    document.getElementById('suggestions').style.display = '';
+  }
+  renderHistory();
 }
 
 // ── Save current conversation ────────────────────────────────────
