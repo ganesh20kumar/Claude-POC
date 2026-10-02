@@ -31,6 +31,16 @@ def chat():
     if not question:
         return jsonify({"error": "question is required"}), 400
 
+    ALLOWED_MODELS = {
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
+    }
+    model = data.get("model", "claude-sonnet-4-6")
+    if model not in ALLOWED_MODELS:
+        model = "claude-sonnet-4-6"
+
     collected: list[dict] = []
 
     # Monkey-patch print so we can capture tool call events
@@ -40,7 +50,7 @@ def chat():
         messages = [{"role": "user", "content": q}]
         while True:
             response = ag.client.messages.create(
-                model="claude-sonnet-4-6",
+                model=model,
                 max_tokens=4096,
                 tools=ag.tools,
                 messages=messages,

@@ -81,6 +81,17 @@ header {
 .header-title { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 .header-sub { font-size: 12px; color: var(--fg3); margin-top: 1px; }
 .tool-pills { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.model-select-wrap { position: relative; display: flex; align-items: center; }
+#model-select {
+  appearance: none; -webkit-appearance: none;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--fg2); font-family: 'Sora', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.02em; padding: 5px 26px 5px 9px; cursor: pointer; outline: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+#model-select:hover, #model-select:focus { border-color: var(--accent); color: var(--accent); }
+.model-chevron { position: absolute; right: 7px; pointer-events: none; color: var(--fg3); }
+.model-chevron svg { width: 10px; height: 10px; }
 .tool-pill {
   display: flex; align-items: center; gap: 4px;
   padding: 3px 8px; border-radius: 20px;
@@ -188,10 +199,19 @@ header {
       </div>
       <div>
         <div class="header-title">Agent Chat</div>
-        <div class="header-sub">claude-sonnet-4-6 · live mode</div>
+        <div class="header-sub" id="header-sub">claude-sonnet-4-6 · live mode</div>
       </div>
     </div>
     <div class="tool-pills">
+      <div class="model-select-wrap">
+        <select id="model-select" aria-label="Select model">
+          <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+          <option value="claude-haiku-4-5">Haiku 4.5</option>
+          <option value="claude-sonnet-5-5">Sonnet 5.5</option>
+          <option value="claude-opus-5-5">Opus 5.5</option>
+        </select>
+        <span class="model-chevron"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3.5l3 3 3-3"/></svg></span>
+      </div>
       <div class="tool-pill weather">Weather</div>
       <div class="tool-pill calc">Calculator</div>
       <div class="tool-pill search">Web Search</div>
@@ -225,9 +245,15 @@ header {
 </div>
 
 <script>
-const messagesEl = document.getElementById('messages');
-const inputEl    = document.getElementById('user-input');
-const sendBtn    = document.getElementById('send-btn');
+const messagesEl  = document.getElementById('messages');
+const inputEl     = document.getElementById('user-input');
+const sendBtn     = document.getElementById('send-btn');
+const modelSelect = document.getElementById('model-select');
+const headerSub   = document.getElementById('header-sub');
+
+modelSelect.addEventListener('change', () => {
+  headerSub.textContent = `${modelSelect.value} · live mode`;
+});
 
 function hideEmpty() {
   const e = document.getElementById('empty-state');
@@ -314,7 +340,7 @@ async function send() {
     const res = await fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: text })
+      body: JSON.stringify({ question: text, model: modelSelect.value })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Server error');
